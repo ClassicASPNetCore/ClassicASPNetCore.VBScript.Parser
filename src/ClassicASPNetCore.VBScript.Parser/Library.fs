@@ -71,6 +71,32 @@ module VBScriptParser =
         |>> string |>> String
         .>> spaces
 
+    let pvalue =
+        choice [
+            pint
+            pstringliteral
+            pbool
+        ]
+    
+    let pliteral = pvalue |>> Literal
+
+    let pvariable =
+        many1Satisfy2 (System.Char.IsLetter) (System.Char.IsLetterOrDigit)
+        |>> Variable
+        .>> spaces
+    
+    let intOperatorParser = OperatorPrecedenceParser<Expr, Unit, Unit>()
+
+    let intExpr = intOperatorParser.ExpressionParser
+
+    let intTerm = choice [
+        pint .>> spaces |>> Literal <|> pvariable
+        parens intExpr
+    ]
+    intOperatorParser.TermParser <- intTerm
+
+    let createOperation op x y = Operation (x, op, y)
+
     let private pblocks = choice [
         pBlock
         pInstruction
