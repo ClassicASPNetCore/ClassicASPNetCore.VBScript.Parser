@@ -6,6 +6,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Types.fs" />
+    <Compile Include="ParserCore.fs" />
+    <Compile Include="Expressions.fs" />
+    <Compile Include="Statements.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>
 
