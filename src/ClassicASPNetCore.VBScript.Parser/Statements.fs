@@ -7,57 +7,57 @@ open Expressions
 module Statements =
     let pStatement, pStatementRef = createParserForwardedToRef<Statement, unit>()
     let pBlock, pBlockRef = createParserForwardedToRef<Block, unit>()
-    pBlockRef.Value <- many pStatement
+    pBlockRef.Value <- sepEndBy1 pStatement stmtSep
 
     let pDim =
-        pword "Dim" >>. sepBy1 pIdentifier (cspaces >>. pword ",")
+        pword "Dim" >>. sepBy1 pIdentifier (inlineSpaces >>. pword ",")
         |>> Dim
     let pLet =
-        pipe2 pIdentifier (pword "=" >>. pExpr) (fun name expr ->
+        pipe2 (pIdentifier .>> inlineSpaces) (pword "=" >>. pExpr) (fun name expr ->
             Let (name, expr)
         )
     
     let pSet =
-        pipe2 (pword "Set" >>. pIdentifier) (pword "=" >>. pExpr) (fun name expr ->
+        pipe2 (pword "Set" >>. pIdentifier .>> inlineSpaces) (pword "=" >>. pExpr) (fun name expr ->
             Set (name, expr)
         )
     
     let pIf =
         let pElseIf =
             pipe2 
-                (pword "ElseIf" >>. pExpr .>> cspaces) (pBlock .>> cspaces) (fun cond body -> (cond, body))
+                (pword "ElseIf" >>. pExpr .>> spaces) (pBlock .>> spaces) (fun cond body -> (cond, body))
         pipe5
-            (pword "If" >>. pExpr .>> cspaces .>> pword "Then" .>> cspaces)
+            (pword "If" >>. inlineSpaces >>. pExpr .>> inlineSpaces .>> pword "Then" .>> spaces)
             pBlock
             (many pElseIf)
-            (opt (pword "Else" >>. pBlock))
+            (opt (pword "Else" >>. spaces >>. pBlock))
             (pword "End" >>. pword "If" >>% ())
             (fun cond thenBlock elseIfs elseBlock _ ->
                 If (cond, thenBlock, elseIfs, elseBlock)
             )
 
     let pWhile =
-        pword "While" >>. pExpr .>> cspaces .>>.
+        pword "While" >>. inlineSpaces >>. pExpr .>> spaces .>>.
         pBlock .>>
         (pword "Wend")
         |>> fun (cond, body) -> While (cond, body)
 
     let pFor =
         pipe5
-            (pword "For" >>. pIdentifier .>> cspaces)
-            (pword "=" >>. pExpr .>> cspaces)
-            (pword "To" >>. pExpr .>> cspaces)
-            (opt (pword "Step" >>. pExpr .>> cspaces))
-            (pBlock .>> (pword "Next"))
+            (pword "For" >>. inlineSpaces >>. pIdentifier .>> inlineSpaces)
+            (pword "=" >>. inlineSpaces >>. pExpr .>> inlineSpaces)
+            (pword "To" >>. inlineSpaces >>. pExpr .>> inlineSpaces)
+            (opt (pword "Step" >>. inlineSpaces >>. pExpr .>> inlineSpaces))
+            (spaces >>. pBlock .>> spaces .>> (pword "Next"))
             (fun counter start endExpr step body ->
                 For (counter, start, endExpr, step, body)
             )
     
     let pForEach =
         pipe3
-            (pword "For Each" >>. cspaces >>. pIdentifier)
-            (pword "In" >>. pExpr .>> cspaces)
-            (pBlock .>> pword "Next")
+            (pword "For Each" >>. inlineSpaces >>. pIdentifier .>> inlineSpaces)
+            (pword "In" >>. inlineSpaces >>. pExpr .>> inlineSpaces)
+            (pBlock .>> spaces .>> pword "Next")
             (fun item collection body ->
                 ForEach (item, collection, body)
             )
@@ -65,8 +65,8 @@ module Statements =
     let pDoLoop =
         let pLoopCondition =
             pipe2
-                (pword "While" <|> pword "Until" .>> cspaces)
-                (pExpr .>> cspaces)
+                (pword "While" <|> pword "Until" .>> inlineSpaces)
+                (pExpr .>> inlineSpaces)
                 (fun keyword expr -> (keyword, expr))
         pipe4
             (pword "Do" >>. opt pLoopCondition)
