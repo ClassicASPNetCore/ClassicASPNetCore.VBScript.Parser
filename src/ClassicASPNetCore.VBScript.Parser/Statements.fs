@@ -25,19 +25,19 @@ module Statements =
     let pIf =
         let pElseIf =
             pipe2 
-                (pword "ElseIf" >>. pExpr .>> spaces) (pBlock .>> spaces) (fun cond body -> (cond, body))
+                (pword "ElseIf" >>. pExpr .>> cspaces) (pBlock .>> cspaces) (fun cond body -> (cond, body))
         pipe5
-            (pword "If" >>. inlineSpaces >>. pExpr .>> inlineSpaces .>> pword "Then" .>> spaces)
+            (pword "If" >>. inlineSpaces >>. pExpr .>> inlineSpaces .>> pword "Then" .>> cspaces)
             pBlock
             (many pElseIf)
-            (opt (pword "Else" >>. spaces >>. pBlock))
+            (opt (pword "Else" >>. cspaces >>. pBlock))
             (pword "End" >>. pword "If" >>% ())
             (fun cond thenBlock elseIfs elseBlock _ ->
                 If (cond, thenBlock, elseIfs, elseBlock)
             )
 
     let pWhile =
-        pword "While" >>. inlineSpaces >>. pExpr .>> spaces .>>.
+        pword "While" >>. inlineSpaces >>. pExpr .>> cspaces .>>.
         pBlock .>>
         (pword "Wend")
         |>> fun (cond, body) -> While (cond, body)
@@ -48,16 +48,16 @@ module Statements =
             (pword "=" >>. inlineSpaces >>. pExpr .>> inlineSpaces)
             (pword "To" >>. inlineSpaces >>. pExpr .>> inlineSpaces)
             (opt (pword "Step" >>. inlineSpaces >>. pExpr .>> inlineSpaces))
-            (spaces >>. pBlock .>> spaces .>> (pword "Next"))
+            (cspaces >>. pBlock .>> cspaces .>> (pword "Next"))
             (fun counter start endExpr step body ->
                 For (counter, start, endExpr, step, body)
             )
     
     let pForEach =
         pipe3
-            (pword "For Each" >>. inlineSpaces >>. pIdentifier .>> inlineSpaces)
-            (pword "In" >>. inlineSpaces >>. pExpr .>> inlineSpaces)
-            (pBlock .>> spaces .>> pword "Next")
+            (pword "For" >>. pword "Each" >>. inlineSpaces >>. pIdentifier .>> inlineSpaces)
+            (pword "In" >>. inlineSpaces >>. pExpr .>> cspaces)
+            (pBlock .>> cspaces .>> pword "Next")
             (fun item collection body ->
                 ForEach (item, collection, body)
             )
@@ -69,9 +69,9 @@ module Statements =
                 (pExpr .>> inlineSpaces)
                 (fun keyword expr -> (keyword, expr))
         pipe4
-            (pword "Do" >>. opt pLoopCondition)
+            (pword "Do" >>. opt pLoopCondition .>> cspaces)
             (pBlock .>> cspaces)
-            (pword "Loop" .>> cspaces)
+            (pword "Loop" .>> inlineSpaces)
             (opt pLoopCondition)
             (fun preCond body _ postCond ->
                 DoLoop (preCond, body, postCond)
@@ -86,7 +86,7 @@ module Statements =
                 (fun expr body -> { Expressions = expr; Body = body })
         
         let pDefaultCase =
-            pword "Case Else" >>. pBlock .>> cspaces
+            pword "Case Else" >>. cspaces >>. pBlock .>> cspaces
         
         pipe4
             (pword "Select Case" >>. pExpr .>> cspaces)
@@ -111,7 +111,7 @@ module Statements =
         pipe3
             (pword "Sub" >>. pIdentifier)
             pArgumentDefList
-            (pBlock .>> pword "End" .>> pword "Sub")
+            (cspaces >>. pBlock .>> pword "End" .>> pword "Sub")
             (fun name args body -> Sub (name, args, body))
 
     // Parser para "Function ... End Function"
@@ -119,21 +119,21 @@ module Statements =
         pipe3
             (pword "Function" >>. pIdentifier)
             pArgumentDefList
-            (pBlock .>> pword "End" .>> pword "Function")
+            (cspaces >>. pBlock .>> pword "End" .>> pword "Function")
             (fun name args body -> Function (name, args, body))
 
     pStatementRef.Value <-
         choice [
             pIf
             pWhile
-            pForEach
+            attempt pForEach
             pFor
             pDoLoop
             pSelectCase
             pSet
             pDim
             attempt pLet
-        ] .>> cspaces
+        ] .>> inlineSpaces
 
     let pTopLevelItem =
         choice [
@@ -142,7 +142,7 @@ module Statements =
             pStatement |>> Statement
         ]
 
-    let pScript = many pTopLevelItem
+    let pScript = sepEndBy pTopLevelItem stmtSep
 
     let parseString text =
         let fullParser = cspaces >>. pScript .>> eof

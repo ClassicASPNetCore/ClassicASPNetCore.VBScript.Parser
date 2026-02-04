@@ -22,6 +22,13 @@ module ParserCore =
         inlineWhitespace1
     ])
 
+    let cspaces = skipMany (choice [
+        pLineContinuation;
+        pComment;
+        skipNewline;
+        inlineWhitespace1
+    ])
+
     let stmtSep =
         inlineSpaces >>.
         (many1 (choice [
