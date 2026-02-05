@@ -7,7 +7,7 @@ open Expressions
 module Statements =
     let pStatement, pStatementRef = createParserForwardedToRef<Statement, unit>()
     let pBlock, pBlockRef = createParserForwardedToRef<Block, unit>()
-    pBlockRef.Value <- sepEndBy1 pStatement stmtSep
+    pBlockRef.Value <- sepEndBy pStatement stmtSep
 
     let pDim =
         pword "Dim" >>. sepBy1 pIdentifier (inlineSpaces >>. pword ",")
@@ -25,7 +25,7 @@ module Statements =
     let pIf =
         let pElseIf =
             pipe2 
-                (pword "ElseIf" >>. pExpr .>> cspaces) (pBlock .>> cspaces) (fun cond body -> (cond, body))
+                (pword "ElseIf" >>. pExpr .>> inlineSpaces .>> pword "Then" .>> cspaces) (pBlock .>> cspaces) (fun cond body -> (cond, body))
         pipe5
             (pword "If" >>. inlineSpaces >>. pExpr .>> inlineSpaces .>> pword "Then" .>> cspaces)
             pBlock
@@ -113,6 +113,13 @@ module Statements =
             pArgumentDefList
             (cspaces >>. pBlock .>> pword "End" .>> pword "Sub")
             (fun name args body -> Sub (name, args, body))
+    
+    let pExit =
+        pword "Exit" >>. (pword "Sub" <|> pword "Function" <|> pword "For" <|> pword "Do")
+        |>> Exit
+    
+    let pCallStmt =
+        pword "Call" >>. pExpr |>> CallStmt
 
     // Parser para "Function ... End Function"
     let pFunction =
@@ -132,6 +139,8 @@ module Statements =
             pSelectCase
             pSet
             pDim
+            pExit
+            pCallStmt
             attempt pLet
         ] .>> inlineSpaces
 
